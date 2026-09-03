@@ -1,0 +1,62 @@
+version: '3.8'
+
+# Self-contained Coolify Compose for VCM SaaS testing environment.
+# This stack includes the Next.js app and a PostgreSQL database.
+# Set S3 credentials via Coolify environment variables for file storage.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vcm-saas-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgres://vcm:vcm_secret@postgres:5432/vcm_saas}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://vcm.complihq.org}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-false}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL}
+      RUN_SEED: ${RUN_SEED:-false}
+    networks:
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.vcm-saas.rule=Host(`vcm.complihq.org`)
+      - traefik.http.routers.vcm-saas.entrypoints=http,https
+      - traefik.http.routers.vcm-saas.tls.certresolver=letsencrypt
+      - traefik.http.services.vcm-saas.loadbalancer.server.port=3000
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vcm-saas-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vcm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vcm_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-vcm_saas}
+    volumes:
+      - vcm-saas-postgres-data:/var/lib/postgresql/data
+    networks:
+      - coolify
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  vcm-saas-postgres-data:
+
+networks:
+  coolify:
+    external: true

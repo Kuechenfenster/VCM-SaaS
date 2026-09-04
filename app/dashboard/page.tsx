@@ -1,3 +1,7 @@
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { redirect } from 'next/navigation';
+import { getDashboardData } from '@/lib/dashboard';
 import { AppShell } from '@/components/app-shell';
 import { PageHeader } from '@/components/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,34 +11,6 @@ import { ClipboardList, Calendar, PlayCircle, CheckCircle2, ShieldAlert, Factory
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
-
-interface DashboardStats {
-  stats: {
-    total: number;
-    scheduled: number;
-    inProgress: number;
-    completed: number;
-    openCaps: number;
-    factories: number;
-  };
-  recentAudits: {
-    id: string;
-    status: string;
-    factoryName: string;
-    templateName: string;
-    auditorName: string | null;
-    scheduledAt: string | null;
-    overallScore: number | null;
-    capCount: number;
-    itemCount: number;
-  }[];
-}
-
-async function getDashboardData(): Promise<DashboardStats> {
-  const res = await fetch(`${process.env.NEXTAUTH_URL}/api/dashboard`, { cache: 'no-store' });
-  if (!res.ok) throw new Error('Failed to load dashboard');
-  return res.json();
-}
 
 function StatCard({ title, value, icon: Icon, href }: { title: string; value: number; icon: React.ElementType; href?: string }) {
   const content = (
@@ -53,7 +29,10 @@ function StatCard({ title, value, icon: Icon, href }: { title: string; value: nu
 }
 
 export default async function DashboardPage() {
-  const data = await getDashboardData();
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.active) redirect('/login');
+
+  const data = await getDashboardData({ id: session.user.id, role: session.user.role });
   const { stats } = data;
 
   return (

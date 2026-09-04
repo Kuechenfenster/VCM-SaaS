@@ -28,6 +28,8 @@ services:
       RUN_SEED: ${RUN_SEED:-false}
     networks:
       - coolify
+    ports:
+      - '127.0.0.1:3000:3000'
     labels:
       - traefik.enable=true
       - traefik.http.routers.vcm-saas.rule=Host(`vcm.complihq.org`)
